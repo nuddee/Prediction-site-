@@ -26,6 +26,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDetecting, setIsDetecting] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fps, setFps] = useState(0);
   const [lastPredictionTime, setLastPredictionTime] = useState(0);
@@ -42,20 +43,18 @@ export default function App() {
     const targetState = forceState !== undefined ? forceState : !cameraActive;
     
     if (!targetState) {
-      const stream = videoRef.current?.srcObject as MediaStream;
-      stream?.getTracks().forEach(track => track.stop());
+      const currentStream = videoRef.current?.srcObject as MediaStream || stream;
+      currentStream?.getTracks().forEach(track => track.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
+      setStream(null);
       setCameraActive(false);
       setIsDetecting(false);
     } else {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        const newStream = await navigator.mediaDevices.getUserMedia({ 
           video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } } 
         });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
+        setStream(newStream);
         setCameraActive(true);
         setError(null);
       } catch (err: any) {
@@ -64,6 +63,16 @@ export default function App() {
       }
     }
   };
+
+  // Attach stream to video element when it becomes available
+  useEffect(() => {
+    if (currentScreen === 'camera' && cameraActive && stream && videoRef.current) {
+      if (videoRef.current.srcObject !== stream) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(console.error);
+      }
+    }
+  }, [currentScreen, cameraActive, stream]);
 
   // Clean up camera when leaving camera screen
   useEffect(() => {
@@ -115,7 +124,7 @@ export default function App() {
 
   // Perform detection on camera
   const performDetection = async () => {
-    if (!videoRef.current || !canvasRef.current || !cameraActive) return;
+    if (!videoRef.current || !canvasRef.current || !cameraActive || videoRef.current.videoWidth === 0) return;
 
     const startTime = performance.now();
 
