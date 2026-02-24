@@ -56,6 +56,7 @@ export default function App() {
         });
         setStream(newStream);
         setCameraActive(true);
+        setIsDetecting(true);
         setError(null);
       } catch (err: any) {
         setError(`Failed to access camera: ${err.message}`);
@@ -88,9 +89,22 @@ export default function App() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Match canvas size to media display size
-    const displayWidth = mediaElement.clientWidth;
-    const displayHeight = mediaElement.clientHeight;
+    const intrinsicWidth = (mediaElement as HTMLVideoElement).videoWidth || (mediaElement as HTMLImageElement).naturalWidth;
+    const intrinsicHeight = (mediaElement as HTMLVideoElement).videoHeight || (mediaElement as HTMLImageElement).naturalHeight;
+    
+    if (!intrinsicWidth || !intrinsicHeight) return;
+
+    const intrinsicRatio = intrinsicWidth / intrinsicHeight;
+    const elementRatio = mediaElement.clientWidth / mediaElement.clientHeight;
+    
+    let displayWidth = mediaElement.clientWidth;
+    let displayHeight = mediaElement.clientHeight;
+
+    if (intrinsicRatio > elementRatio) {
+      displayHeight = displayWidth / intrinsicRatio;
+    } else {
+      displayWidth = displayHeight * intrinsicRatio;
+    }
     
     canvas.width = displayWidth;
     canvas.height = displayHeight;
@@ -136,11 +150,13 @@ export default function App() {
     try {
       // Capture frame to canvas
       const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = videoRef.current.videoWidth;
-      tempCanvas.height = videoRef.current.videoHeight;
+      // Downscale for faster processing if realtime
+      const scale = isRealtime ? 0.5 : 1;
+      tempCanvas.width = videoRef.current.videoWidth * scale;
+      tempCanvas.height = videoRef.current.videoHeight * scale;
       const ctx = tempCanvas.getContext('2d');
       if (!ctx) return;
-      ctx.drawImage(videoRef.current, 0, 0);
+      ctx.drawImage(videoRef.current, 0, 0, tempCanvas.width, tempCanvas.height);
 
       let boxes: BoundingBox[] = [];
 
@@ -224,7 +240,7 @@ export default function App() {
       }
       drawBoxesOnCanvas([], canvasRef.current, videoRef.current);
     }
-  }, [cameraActive, useGemini, apiUrl]);
+  }, [cameraActive, useGemini, apiUrl, isRealtime]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -350,7 +366,7 @@ export default function App() {
       await performDetection();
       
       if (isActive) {
-        timeoutId = window.setTimeout(loop, isRealtime ? 1000 : intervalMs);
+        timeoutId = window.setTimeout(loop, isRealtime ? 50 : intervalMs);
       }
     };
 
@@ -586,6 +602,11 @@ export default function App() {
               ref={canvasRef}
               className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
             />
+            {error && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-red-500/90 text-white text-sm px-4 py-2 rounded-lg max-w-xs text-center backdrop-blur-sm z-10">
+                {error}
+              </div>
+            )}
           </div>
         )}
       </div>
