@@ -1,0 +1,5 @@
+{
+  "name": "YOLO Vision Client",
+  "description": "Web client for hosted YOLO models with camera integration.",
+  "requestFramePermissions": ["camera"]
+}
