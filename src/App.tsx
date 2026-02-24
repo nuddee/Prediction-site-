@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Camera, Settings, Play, Square, AlertCircle, Video, ChevronLeft, Server, Sparkles, Home, Info, Image as ImageIcon, Upload } from 'lucide-react';
 import { GoogleGenAI, Type } from '@google/genai';
 
@@ -123,7 +123,7 @@ export default function App() {
   };
 
   // Perform detection on camera
-  const performDetection = async () => {
+  const performDetection = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || !cameraActive || videoRef.current.videoWidth === 0) return;
 
     const startTime = performance.now();
@@ -140,22 +140,24 @@ export default function App() {
       let boxes: BoundingBox[] = [];
 
       if (useGemini) {
-        // Use Gemini 2.5 Flash
+        // Use Gemini 3 Flash Preview
         const base64Data = tempCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            {
-              inlineData: {
-                data: base64Data,
-                mimeType: 'image/jpeg'
+          model: 'gemini-3-flash-preview',
+          contents: {
+            parts: [
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: 'image/jpeg'
+                }
+              },
+              {
+                text: 'Detect all prominent objects in this image. Return a JSON array of objects, each with a "label", a "confidence" (number between 0 and 1), and a "box" array containing [ymin, xmin, ymax, xmax] normalized from 0 to 1000.'
               }
-            },
-            {
-              text: 'Detect all prominent objects in this image. Return a JSON array of objects, each with a "label", a "confidence" (number between 0 and 1), and a "box" array containing [ymin, xmin, ymax, xmax] normalized from 0 to 1000.'
-            }
-          ],
+            ]
+          },
           config: {
             responseMimeType: 'application/json',
             responseSchema: {
@@ -213,7 +215,7 @@ export default function App() {
       setError(`Detection failed: ${err.message}`);
       drawBoxesOnCanvas([], canvasRef.current, videoRef.current);
     }
-  };
+  }, [cameraActive, useGemini, apiUrl]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -253,18 +255,20 @@ export default function App() {
         const base64Data = tempCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            {
-              inlineData: {
-                data: base64Data,
-                mimeType: 'image/jpeg'
+          model: 'gemini-3-flash-preview',
+          contents: {
+            parts: [
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: 'image/jpeg'
+                }
+              },
+              {
+                text: 'Detect all prominent objects in this image. Return a JSON array of objects, each with a "label", a "confidence" (number between 0 and 1), and a "box" array containing [ymin, xmin, ymax, xmax] normalized from 0 to 1000.'
               }
-            },
-            {
-              text: 'Detect all prominent objects in this image. Return a JSON array of objects, each with a "label", a "confidence" (number between 0 and 1), and a "box" array containing [ymin, xmin, ymax, xmax] normalized from 0 to 1000.'
-            }
-          ],
+            ]
+          },
           config: {
             responseMimeType: 'application/json',
             responseSchema: {
@@ -350,7 +354,7 @@ export default function App() {
       isActive = false;
       clearTimeout(timeoutId);
     };
-  }, [isDetecting, cameraActive, currentScreen, intervalMs, isRealtime, useGemini, apiUrl]);
+  }, [isDetecting, cameraActive, currentScreen, intervalMs, isRealtime, performDetection]);
 
   // Handle window resize to keep canvas aligned
   useEffect(() => {
@@ -372,9 +376,9 @@ export default function App() {
         <div className="w-16 h-16 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
           <Video className="w-8 h-8 text-emerald-500" />
         </div>
-        <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">YOLO Vision</h1>
+        <h1 className="text-4xl font-bold text-white mb-2 tracking-tight">Project x</h1>
         <p className="text-zinc-400 text-lg">
-          Real-time object detection.
+          exp test 
         </p>
       </div>
 
