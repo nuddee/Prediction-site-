@@ -89,8 +89,13 @@ export default function App() {
     if (!ctx) return;
 
     // Match canvas size to media display size
-    canvas.width = mediaElement.clientWidth;
-    canvas.height = mediaElement.clientHeight;
+    const displayWidth = mediaElement.clientWidth;
+    const displayHeight = mediaElement.clientHeight;
+    
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+    canvas.style.width = `${displayWidth}px`;
+    canvas.style.height = `${displayHeight}px`;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -140,11 +145,11 @@ export default function App() {
       let boxes: BoundingBox[] = [];
 
       if (useGemini) {
-        // Use Gemini 3 Flash Preview
+        // Use Gemini 2.5 Flash
         const base64Data = tempCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         
         const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.5-flash',
           contents: {
             parts: [
               {
@@ -154,7 +159,7 @@ export default function App() {
                 }
               },
               {
-                text: 'Detect all prominent objects in this image. Return a JSON array of objects, each with a "label", a "confidence" (number between 0 and 1), and a "box" array containing [ymin, xmin, ymax, xmax] normalized from 0 to 1000.'
+                text: 'Detect all prominent objects in this image (like people, cars, animals, furniture, etc.). Return a JSON array of objects. Each object must have a "label" (string), a "confidence" (number between 0 and 1), and a "box" array of 4 numbers [ymin, xmin, ymax, xmax] normalized from 0 to 1000. If no objects are found, return an empty array [].'
               }
             ]
           },
@@ -212,7 +217,11 @@ export default function App() {
 
     } catch (err: any) {
       console.error('Detection error:', err);
-      setError(`Detection failed: ${err.message}`);
+      if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
+        setError('Rate limit exceeded. Waiting...');
+      } else {
+        setError(`Detection failed: ${err.message}`);
+      }
       drawBoxesOnCanvas([], canvasRef.current, videoRef.current);
     }
   }, [cameraActive, useGemini, apiUrl]);
@@ -255,7 +264,7 @@ export default function App() {
         const base64Data = tempCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
         
         const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
+          model: 'gemini-2.5-flash',
           contents: {
             parts: [
               {
@@ -265,7 +274,7 @@ export default function App() {
                 }
               },
               {
-                text: 'Detect all prominent objects in this image. Return a JSON array of objects, each with a "label", a "confidence" (number between 0 and 1), and a "box" array containing [ymin, xmin, ymax, xmax] normalized from 0 to 1000.'
+                text: 'Detect all prominent objects in this image (like people, cars, animals, furniture, etc.). Return a JSON array of objects. Each object must have a "label" (string), a "confidence" (number between 0 and 1), and a "box" array of 4 numbers [ymin, xmin, ymax, xmax] normalized from 0 to 1000. If no objects are found, return an empty array [].'
               }
             ]
           },
@@ -320,7 +329,11 @@ export default function App() {
 
     } catch (err: any) {
       console.error('Detection error:', err);
-      setError(`Detection failed: ${err.message}`);
+      if (err.status === 429 || err.message?.includes('429') || err.message?.includes('quota')) {
+        setError('Rate limit exceeded. Try again later.');
+      } else {
+        setError(`Detection failed: ${err.message}`);
+      }
     } finally {
       setIsPredictingImage(false);
     }
@@ -337,7 +350,7 @@ export default function App() {
       await performDetection();
       
       if (isActive) {
-        timeoutId = window.setTimeout(loop, isRealtime ? 0 : intervalMs);
+        timeoutId = window.setTimeout(loop, isRealtime ? 1000 : intervalMs);
       }
     };
 
@@ -547,7 +560,7 @@ export default function App() {
       </div>
 
       {/* Video Viewport */}
-      <div className="flex-1 relative flex items-center justify-center">
+      <div className="flex-1 relative flex items-center justify-center overflow-hidden">
         {!cameraActive ? (
           <div className="text-center p-8">
             <AlertCircle className="w-12 h-12 mx-auto text-red-500 mb-4" />
@@ -562,18 +575,18 @@ export default function App() {
             )}
           </div>
         ) : (
-          <>
+          <div className="relative w-full h-full flex items-center justify-center">
             <video 
               ref={videoRef} 
-              className="absolute inset-0 w-full h-full object-cover"
+              className="max-w-full max-h-full object-contain"
               playsInline
               muted
             />
             <canvas 
               ref={canvasRef}
-              className="absolute inset-0 w-full h-full pointer-events-none"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
             />
-          </>
+          </div>
         )}
       </div>
 
